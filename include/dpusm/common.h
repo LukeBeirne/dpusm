@@ -99,6 +99,16 @@ typedef enum {
 
 extern const char *DPUSM_IO_STR[];
 
+typedef enum {
+    DPUSM_BETWEEN_P2P    = 1 << 0,
+    DPUSM_BETWEEN_MEMCPY = 1 << 1,
+    DPUSM_BETWEEN_OTHER  = 1 << 2,
+
+    DPUSM_BETWEEN_MAX    = 1 << 3,
+} dpusm_between_t;
+
+extern const char *DPUSM_BETWEEN_STR[];
+
 /* each member is a bitmask of capabilities */
 typedef struct dpusm_provider_capabilities {
     int optional;             // dpusm_optional_t
@@ -108,6 +118,7 @@ typedef struct dpusm_provider_capabilities {
     int checksum_byteorder;   // dpusm_byteorder_t
     int raid;                 // dpusm_raid_t
     int io;                   // dpusm_io_t
+    int between;              // dpusm_between_t
 } dpusm_pc_t;
 
 /* expects only one bit will be set, so only returns first set bit */

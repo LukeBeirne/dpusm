@@ -90,6 +90,13 @@ typedef struct dpusm_user_functions {
                 unsigned int nents,
                 size_t size);
         } to;
+
+        /* offloader -> offloader */
+        struct {
+            /* required */
+            /* pass in both src and dst */
+            int (*generic)(dpusm_mv_t *src_mv, dpusm_mv_t *dst_mv, size_t size);
+        } between;
     } copy;
 
     /*

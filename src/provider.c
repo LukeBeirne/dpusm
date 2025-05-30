@@ -224,6 +224,22 @@ dpusmph_init(struct module *module, const dpusm_pf_t *funcs)
             dpusmph->capabilities.io &= ~DPUSM_IO_DISK;
         }
 
+        if (funcs->copy.between.source_p2p && funcs->copy.between.destination_p2p) {
+            dpusmph->capabilities.between |= DPUSM_BETWEEN_P2P;
+            print_supported(name, enum2str(DPUSM_BETWEEN_STR, DPUSM_BETWEEN_P2P));
+        }
+        else {
+            dpusmph->capabilities.between &= ~DPUSM_BETWEEN_P2P;
+        }
+
+        if (funcs->copy.between.source_memcpy && funcs->copy.between.destination_memcpy) {
+            dpusmph->capabilities.between |= DPUSM_BETWEEN_MEMCPY;
+            print_supported(name, enum2str(DPUSM_BETWEEN_STR, DPUSM_BETWEEN_MEMCPY));
+        }
+        else {
+            dpusmph->capabilities.between &= ~DPUSM_BETWEEN_MEMCPY;
+        }
+
         dpusmph->module = module;
         dpusmph->funcs = funcs;
         dpusmph->self = dpusmph;

@@ -14,6 +14,7 @@ typedef struct dpusm_provider_disk_data {
 } dpusm_dd_t;
 
 /* signatures of functions that the provider should implement */
+typedef struct dpusm_provider_functions dpusm_pf_t;
 typedef struct dpusm_provider_functions {
     /*
      * required
@@ -75,6 +76,16 @@ typedef struct dpusm_provider_functions {
                 unsigned int nents,
                 size_t size);
         } to;
+
+        /* offloader -> offloader */
+        struct {
+            /* optional */
+            /* pass in an what works for the particular strategy */
+            int (*source_p2p)(dpusm_mv_t *src_mv, dpusm_mv_t *dst_mv, size_t size, const dpusm_pf_t *funcs);
+            int (*destination_p2p)(void *src, void *dst_handle, size_t size);
+            int (*source_memcpy)(dpusm_mv_t *src_mv, dpusm_mv_t *dst_mv, size_t size, const dpusm_pf_t *funcs);
+            int (*destination_memcpy)(void *src, void *dst_handle, size_t size);
+        } between;
     } copy;
 
     /*

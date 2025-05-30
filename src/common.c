@@ -69,6 +69,11 @@ const char *DPUSM_IO_STR[] = {
     "Disk I/O",
 };
 
+const char *DPUSM_BETWEEN_STR[] = {
+    "Peer-to-Peer",
+    "Memory Copy",
+};
+
 /* expects only one bit will be set, so only returns first set bit */
 int enum2index(int mask) {
 	if (mask == 0) return -1;

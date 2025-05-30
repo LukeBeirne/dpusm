@@ -248,6 +248,71 @@ dpusm_copy_to_generic(dpusm_mv_t *mv, void *buf, size_t size) {
 }
 
 static int
+dpusm_copy_between_generic(dpusm_mv_t *src_mv, dpusm_mv_t *dst_mv, size_t size) {
+    if (!src_mv || !dst_mv) {
+        return DPUSM_ERROR;
+    }
+
+    if (src_mv == dst_mv) {
+        return DPUSM_OK;
+    }
+
+    CHECK_HANDLE(src_mv->handle, src_h, DPUSM_ERROR);
+    CHECK_HANDLE(dst_mv->handle, dst_h, DPUSM_ERROR);
+
+    dpusm_mv_t src_actual_mv = {
+        .handle = src_h->handle,
+        .offset = src_mv->offset,
+    };
+    dpusm_mv_t dst_actual_mv = {
+        .handle = dst_h->handle,
+        .offset = dst_mv->offset,
+    };
+
+    /* 
+     * between copies are optional:
+     * check if any strategies are implemented
+     */
+    /* PEER-TO-PEER */
+    if (FUNCS(src_h->provider)->copy.between.source_p2p &&
+        FUNCS(dst_h->provider)->copy.between.destination_p2p) {
+        return DPUSM_NOT_IMPLEMENTED;
+    }
+
+    /* MEMCPY */
+    else if (FUNCS(src_h->provider)->copy.between.source_memcpy &&
+             FUNCS(dst_h->provider)->copy.between.destination_memcpy) {
+        return FUNCS(src_h->provider)->copy.between.source_memcpy(&src_actual_mv,
+            &dst_actual_mv, size, FUNCS(dst_h->provider));
+    }
+
+    /*
+     * between not implemented, instead do a
+     * "to" call followed by a "from" call
+     */
+    else {
+        void *buf = dpusm_mem_alloc(size);
+        if (buf == NULL)
+            return DPUSM_ERROR;
+
+        if (FUNCS(src_h->provider)->copy.to.generic(&src_actual_mv, buf, size) != DPUSM_OK) {
+            dpusm_mem_free(buf, size);
+            return DPUSM_ERROR;
+        }
+
+        if (FUNCS(dst_h->provider)->copy.from.generic(&dst_actual_mv, buf, size) != DPUSM_OK) {
+            dpusm_mem_free(buf, size);
+            return DPUSM_ERROR;
+        }
+
+        dpusm_mem_free(buf, size);
+        return DPUSM_OK;
+    }
+
+    return DPUSM_ERROR;
+}
+
+static int
 dpusm_copy_from_ptr(dpusm_mv_t *mv, const void *buf, size_t size) {
     if (!mv || !buf) {
         return DPUSM_ERROR;
@@ -691,16 +756,19 @@ static const dpusm_uf_t user_functions = {
     .get_size      = dpusm_get_size,
     .free          = dpusm_free,
     .copy          = {
-                         .from = {
-                                     .generic     = dpusm_copy_from_generic,
-                                     .ptr         = dpusm_copy_from_ptr,
-                                     .scatterlist = dpusm_copy_from_scatterlist,
-                                 },
-                         .to   = {
-                                     .generic     = dpusm_copy_to_generic,
-                                     .ptr         = dpusm_copy_to_ptr,
-                                     .scatterlist = dpusm_copy_to_scatterlist,
-                                 },
+                         .from    = {
+                                        .generic     = dpusm_copy_from_generic,
+                                        .ptr         = dpusm_copy_from_ptr,
+                                        .scatterlist = dpusm_copy_from_scatterlist,
+                                    },
+                         .to      = {
+                                        .generic     = dpusm_copy_to_generic,
+                                        .ptr         = dpusm_copy_to_ptr,
+                                        .scatterlist = dpusm_copy_to_scatterlist,
+                                    },
+                         .between = {
+                                        .generic      = dpusm_copy_between_generic,
+                                    },
                      },
     .mem_stats     = dpusm_provider_mem_stats,
     .zero_fill     = dpusm_zero_fill,
