@@ -132,6 +132,14 @@ typedef struct dpusm_provider_capabilities {
     int io;                   // dpusm_io_t
 } dpusm_pc_t;
 
+typedef enum {
+    DPUSM_COMPRESS  = 1 << 0,
+    DPUSM_ZERO_FILL = 1 << 1,
+    DPUSM_CHECKSUM  = 1 << 2,
+
+    DPUSM_OP_MAX   = 1 << 3,
+} dpusm_ops_t;
+
 /* expects only one bit will be set, so only returns first set bit */
 int enum2index(int mask);
 const char *enum2str(const char **strs, int mask);
@@ -146,6 +154,42 @@ typedef struct dpusm_move {
     void *handle;
     size_t offset;
 } dpusm_mv_t;
+
+typedef struct dpusm_jobs {
+    /* jobs */
+    dpusm_ops_t *jobs;
+    int job_count;
+    void *src;
+    size_t src_len;
+
+    /* compress */
+    dpusm_compress_t comp_alg;
+    int comp_level;
+
+    /* zero fill */
+    void *zf_handle;
+    size_t zf_offset;
+    size_t zf_size;
+
+    /* checksum */
+    dpusm_checksum_t cksum_alg;
+    dpusm_checksum_byteorder_t cksum_order;
+    size_t cksum_size;
+
+    /* raidz */
+    /* can compute */
+    /*void *provider;
+    size_t nparity;
+    size_t ndata;
+    size_t *col_sizes;
+    int rec;*/
+
+    /* file open */
+    /*void *provider;
+    const char *path;
+    int flags;
+    int mode;*/
+} dpusm_jobs_t;
 
 /* callback to run after completing writes */
 typedef void (*dpusm_disk_write_completion_t)(void *ptr, int error);

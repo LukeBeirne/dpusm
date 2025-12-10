@@ -52,6 +52,11 @@ dpusm_handle_free(dpusm_handle_t *dpusmh) {
     dpusm_mem_free(dpusmh, sizeof(*dpusmh));
 }
 
+typedef struct dpusm_async_id {
+    void *provider;
+    void *job_id;
+} dpusm_async_t;
+
 /*
  * check provider sanity at run time
  *
@@ -62,6 +67,7 @@ dpusm_handle_free(dpusm_handle_t *dpusmh) {
  */
 static int
 dpusm_provider_sane(dpusm_ph_t **provider) {
+    //printk("DPUSM TEST: In provider sane\n");
     if (!provider) {
         printk("Error: Got bad provider\n");
         return DPUSM_PROVIDER_NOT_EXISTS;
@@ -116,6 +122,17 @@ dpusm_provider_sane(dpusm_ph_t **provider) {
                                                                 \
         CHECK_PROVIDER((new_lhs)->provider, ret);               \
     } while (0)
+
+#define ASYNC_UNPACK(async_id, provider, job_id)                \
+    dpusm_ph_t **(provider) = NULL;                            \
+    void *(job_id) = NULL;                                      \
+    do {                                                        \
+    /* No error checking, would've errored out */               \
+    /* at this point already */                                 \
+    (provider) = (dpusm_ph_t **)(async_id)->provider;           \
+    (job_id) = (async_id)->job_id;                              \
+    } while (0)
+
 
 static void *
 dpusm_get_provider(const char *name) {
@@ -371,12 +388,17 @@ dpusm_provider_mem_stats(void *provider,
 }
 
 static int
-dpusm_zero_fill(void *handle, size_t offset, size_t size) {
+dpusm_zero_fill(void *handle, size_t offset, size_t size, void *async_id) {
     CHECK_HANDLE(handle, dpusmh, DPUSM_ERROR);
+    if (async_id) {
+        ASYNC_UNPACK((dpusm_async_t *)async_id, provider, job_id);
+        return FUNCS(provider)->zero_fill(dpusmh->handle, offset, size, job_id);
+    }
+
     if (!FUNCS(dpusmh->provider)->zero_fill) {
         return DPUSM_NOT_IMPLEMENTED;
     }
-    return FUNCS(dpusmh->provider)->zero_fill(dpusmh->handle, offset, size);
+    return FUNCS(dpusmh->provider)->zero_fill(dpusmh->handle, offset, size, NULL);
 }
 
 static int
@@ -390,8 +412,14 @@ dpusm_all_zeros(void *handle, size_t offset, size_t size) {
 
 static int
 dpusm_compress(dpusm_compress_t alg, int level,
-    void *src, size_t s_len, void *dst, size_t *d_len) {
+    void *src, size_t s_len, void *dst, size_t *d_len, void *async_id) {
     SAME_PROVIDERS(dst, dst_dpusmh, src, src_dpusmh, DPUSM_ERROR);
+    if (async_id) {
+        ASYNC_UNPACK((dpusm_async_t *)async_id, provider, job_id);
+        //printk("DPUSM TEST: async unpack, provider = %p, job_id = %p", provider, job_id);
+        return FUNCS(provider)->compress(alg, level,
+            src_dpusmh->handle, s_len, dst_dpusmh->handle, d_len, job_id);
+    }
 
     dpusm_ph_t **provider = src_dpusmh->provider;
     if (!FUNCS(provider)->compress ||                  /* compression is optional */
@@ -400,7 +428,7 @@ dpusm_compress(dpusm_compress_t alg, int level,
     }
 
     return FUNCS(provider)->compress(alg, level,
-        src_dpusmh->handle, s_len, dst_dpusmh->handle, d_len);
+        src_dpusmh->handle, s_len, dst_dpusmh->handle, d_len, NULL);
 }
 
 static int
@@ -420,8 +448,13 @@ dpusm_decompress(dpusm_decompress_t alg, int *level,
 
 static int
 dpusm_checksum(dpusm_checksum_t alg, dpusm_checksum_byteorder_t order,
-    void *data, size_t size, void *cksum, size_t cksum_size) {
+    void *data, size_t size, void *cksum, size_t cksum_size, void *async_id) {
     CHECK_HANDLE(data, data_dpusmh, DPUSM_ERROR);
+    if (async_id) {
+        ASYNC_UNPACK((dpusm_async_t *)async_id, provider, job_id);
+        return FUNCS(provider)->checksum(alg, order,
+            data_dpusmh->handle, size, cksum, cksum_size, job_id);
+    }
 
     dpusm_ph_t **provider = data_dpusmh->provider;
     if (!FUNCS(provider)->checksum ||                              /* checksum is optional */
@@ -431,7 +464,7 @@ dpusm_checksum(dpusm_checksum_t alg, dpusm_checksum_byteorder_t order,
     }
 
     return FUNCS(provider)->checksum(alg, order,
-        data_dpusmh->handle, size, cksum, cksum_size);
+        data_dpusmh->handle, size, cksum, cksum_size, NULL);
 }
 
 static int dpusm_raid_can_compute(void *provider, size_t nparity, size_t ndata,
@@ -686,6 +719,50 @@ dpusm_disk_close(void *disk) {
     return DPUSM_OK;
 }
 
+static void *
+dpusm_async_init(dpusm_jobs_t *jobs) {
+    //printk("DPUSM TEST: in async, jobs = %p", jobs);
+    if (!jobs) {
+        return NULL;
+    }
+
+    if (!jobs->src) {
+        printk("DPUSM TEST: jobs check fail");
+    }
+    CHECK_HANDLE(jobs->src, dpusmh, NULL);
+    //printk("DPUSM TEST: handle check pass");
+    jobs->src = dpusmh->handle;
+
+    /* async is optional */
+    if (!FUNCS(dpusmh->provider)->async_init) {
+        return NULL;
+    }
+    //printk("DPUSM TEST: async check pass");
+
+    void *job_id = FUNCS(dpusmh->provider)->async_init(jobs);
+
+    dpusm_async_t *async_id = (dpusm_async_t *)dpusm_mem_alloc(sizeof(dpusm_async_t));
+    async_id->provider = dpusmh->provider;
+    async_id->job_id = job_id;
+
+    return (async_id);
+}
+
+static int
+dpusm_async_fini(void *async_id) {
+    if (!async_id) {
+        return DPUSM_ERROR;
+    }
+    ASYNC_UNPACK((dpusm_async_t *)async_id, provider, job_id);
+
+    dpusm_mem_free(async_id, sizeof(dpusm_async_t));
+
+    if (!FUNCS(provider)->async_fini) {
+        return DPUSM_NOT_IMPLEMENTED;
+    }
+    return FUNCS(provider)->async_fini(job_id);
+}
+
 static const dpusm_uf_t user_functions = {
     .get              = dpusm_get_provider,
     .get_name         = dpusm_get_provider_name,
@@ -736,6 +813,8 @@ static const dpusm_uf_t user_functions = {
                             .flush       = dpusm_disk_flush,
                             .close       = dpusm_disk_close,
                         },
+    .async_init    = dpusm_async_init,
+    .async_fini    = dpusm_async_fini
 };
 
 const dpusm_uf_t *
