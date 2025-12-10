@@ -115,14 +115,14 @@ typedef struct dpusm_user_functions {
                      size_t *a_count, size_t *a_size, size_t *a_actual);
 
     /* fill in a buffer with zeros */
-    int (*zero_fill)(void *handle, size_t offset, size_t size);
+    int (*zero_fill)(void *handle, size_t offset, size_t size, void *async_id);
 
     /* whether or not a buffer is all zeros */
     int (*all_zeros)(void *handle, size_t offset, size_t size);
 
     /* pass in usable space in dst, get back compressed length */
     int (*compress)(dpusm_compress_t alg, int level,
-        void *src, size_t s_len, void *dst, size_t *d_len);
+        void *src, size_t s_len, void *dst, size_t *d_len, void *async_id);
 
     /* pass in usable space in dst, get back decompressed length */
     int (*decompress)(dpusm_decompress_t alg, int *level,
@@ -131,7 +131,8 @@ typedef struct dpusm_user_functions {
     int (*checksum)(dpusm_checksum_t alg,
         dpusm_checksum_byteorder_t order,
         void *data, size_t size,
-        void *cksum, size_t cksum_size);
+        void *cksum, size_t cksum_size,
+        void *async_id);
 
     struct {
         int (*can_compute)(void *provider, size_t nparity, size_t ndata,
@@ -183,6 +184,8 @@ typedef struct dpusm_user_functions {
             void *fc_args);
         int (*close)(void *disk_handle);
     } disk;
+    void *(*async_init)(dpusm_jobs_t *jobs);
+    int (*async_fini)(void *async_id);
 } dpusm_uf_t;
 
 /*
