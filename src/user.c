@@ -67,7 +67,6 @@ typedef struct dpusm_async_id {
  */
 static int
 dpusm_provider_sane(dpusm_ph_t **provider) {
-    //printk("DPUSM TEST: In provider sane\n");
     if (!provider) {
         printk("Error: Got bad provider\n");
         return DPUSM_PROVIDER_NOT_EXISTS;
@@ -224,6 +223,19 @@ dpusm_free(void *handle) {
     }
     dpusm_handle_free(dpusmh);
     return rc;
+}
+
+static int
+dpusm_print_handle(void *handle, const char *id) {
+    CHECK_HANDLE(handle, dpusmh, DPUSM_ERROR);
+    if (!dpusmh) {
+        return DPUSM_ERROR;
+    }
+    if (!FUNCS(dpusmh->provider)->print_handle) {
+        return DPUSM_NOT_IMPLEMENTED;
+    }
+
+    return FUNCS(dpusmh->provider)->print_handle(dpusmh->handle, id);
 }
 
 static int
@@ -414,10 +426,8 @@ static int
 dpusm_compress(dpusm_compress_t alg, int level,
     void *src, size_t s_len, void *dst, size_t *d_len, void *async_id) {
     SAME_PROVIDERS(dst, dst_dpusmh, src, src_dpusmh, DPUSM_ERROR);
-    //printk("DPUSM TEST: level = %d", level);
     if (async_id) {
         ASYNC_UNPACK((dpusm_async_t *)async_id, provider, job_id);
-        //printk("DPUSM TEST: async unpack, provider = %p, job_id = %p", provider, job_id);
         return FUNCS(provider)->compress(alg, level,
             src_dpusmh->handle, s_len, dst_dpusmh->handle, d_len, job_id);
     }
@@ -722,23 +732,20 @@ dpusm_disk_close(void *disk) {
 
 static void *
 dpusm_async_init(dpusm_jobs_t *jobs) {
-    //printk("DPUSM TEST: in async, jobs = %p", jobs);
     if (!jobs) {
         return NULL;
     }
-
     if (!jobs->src) {
-        printk("DPUSM TEST: jobs check fail");
+        return NULL;
     }
     CHECK_HANDLE(jobs->src, dpusmh, NULL);
-    //printk("DPUSM TEST: handle check pass");
+
     jobs->src = dpusmh->handle;
 
     /* async is optional */
     if (!FUNCS(dpusmh->provider)->async_init) {
         return NULL;
     }
-    //printk("DPUSM TEST: async check pass");
 
     void *job_id = FUNCS(dpusmh->provider)->async_init(jobs);
 
@@ -774,6 +781,7 @@ static const dpusm_uf_t user_functions = {
     .alloc_ref        = dpusm_alloc_ref,
     .get_size         = dpusm_get_size,
     .free             = dpusm_free,
+    .print_handle     = dpusm_print_handle,
     .associate_handle = dpusm_associate_handle,
     .copy             = {
                             .from = {

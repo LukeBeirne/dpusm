@@ -54,6 +54,9 @@ typedef struct dpusm_user_functions {
     /* free a handle */
     int (*free)(void *handle);
 
+    /* print a handle */
+    int (*print_handle)(void *handle, const char *id);
+
     /* associate a pointer with a pre-existing handle */
     int (*associate_handle)(void *handle, void *ptr);
 
