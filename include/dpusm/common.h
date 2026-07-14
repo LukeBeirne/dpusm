@@ -162,6 +162,9 @@ typedef struct dpusm_jobs {
     void *src;
     size_t src_len;
 
+    void *debug_ptr;
+    int debug_flag;
+
     /* compress */
     dpusm_compress_t comp_alg;
     int comp_level;
