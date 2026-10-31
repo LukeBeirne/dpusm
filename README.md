@@ -18,6 +18,9 @@ sudo rmmod dpusm
 2. Load the provider and register it with the DPUSM
 2. Create a user that calls the functions in the [user api](include/dpusm/user_api.h).
 
+Users get the user API with `dpusm_initialize()` and release it with `dpusm_finalize()`.
+Providers and users can be loaded in any order after the DPUSM.
+
 ## [License](LICENSE)
 
 The Data Processing Unit Services Module is dual licensed under [GPL v2](licenses/GPLv2/COPYING) and [BSD-3](licenses/BSD-3/LICENSE.txt).

@@ -131,6 +131,8 @@ dpusm_get_provider(const char *name) {
 
     if (!FUNCS(provider)) {
         printk("Error: Provider with name \"%s\" found, but has been invalidated.\n", name);
+        /* drop the reference dpusm_get() took */
+        dpusm_put(provider);
         return NULL;
     }
 

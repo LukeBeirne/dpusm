@@ -357,6 +357,7 @@ dpusm_provider_get(dpusm_t *dpusm, const char *name) {
         /* make sure provider can't be unloaded before user */
         if (!try_module_get((*provider)->module)) {
             printk("Error: Could not increment reference count of %s\n", name);
+            mutex_unlock(&dpusm->lock);
             return NULL;
         }
 
